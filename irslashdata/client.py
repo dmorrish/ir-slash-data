@@ -1,7 +1,7 @@
-from pyracing import constants as ct
+from irslashdata import constants as ct
 
-from pyracing import logger
-from pyracing.helpers import encode_password
+from irslashdata import logger
+from irslashdata.helpers import encode_password
 from .exceptions import AuthenticationError, ServerDownError, ForbiddenError, IracingError, BadRequestError, NotFoundError
 
 from datetime import datetime, timezone
