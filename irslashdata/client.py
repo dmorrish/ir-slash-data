@@ -46,16 +46,17 @@ class Client:
         }
 
         try:
-            auth_response = await self.session.post(ct.URL_AUTH, data=login_data)
+            auth_response = await self.session.post('https://members-ng.iracing.com/auth', data=login_data)
             auth_response.raise_for_status()
             response_content = json.loads(auth_response.text)
             if 'authcode' in response_content:
                 if response_content['authcode'] == 0:
-                    message = "Error: No authcode returned in authorization request."
+                    message = "Warning: No authcode returned in authorization request."
                     if 'message' in response_content:
-                        message += "Reason: " + response_content['message']
+                        message += " Reason: " + response_content['message']
 
                     logger.warning(message)
+                    logger.debug(auth_response.json())
                     raise AuthenticationError(message, auth_response)
 
         except httpx.RequestError as exc:
@@ -109,6 +110,7 @@ class Client:
                 timeout=None
             )
             response.raise_for_status()
+            logger.info(f"Response: {response.status_code} {response.reason_phrase}")
             return response
         except httpx.RequestError as exc:
             raise BadRequestError("Bad request. URL: " + exc.request.url, exc.request)

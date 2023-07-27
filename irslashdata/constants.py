@@ -1,11 +1,6 @@
 # _*_ coding: utf_8 _*_
 from enum import Enum
 
-# IRACING SERVICE URLS
-URL_AUTH = 'https://members-ng.iracing.com/auth'
-
-# /data URLs
-
 
 class License(Enum):
     R = 1
@@ -48,6 +43,7 @@ class EventType(Enum):
 
 class SimSessionType(Enum):
     race = 6
+    open_qualifying = 5
     lone_qualifying = 4
     open_practice = 3
 
