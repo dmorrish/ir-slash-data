@@ -1,8 +1,9 @@
 from irslashdata import constants as ct
-
 from irslashdata import logger
 from irslashdata.helpers import encode_password
-from .exceptions import AuthenticationError, ServerDownError, ForbiddenError, IracingError, BadRequestError, NotFoundError
+from .exceptions import (
+    AuthenticationError, ServerDownError, ForbiddenError,
+    IracingError, BadRequestError, NotFoundError)
 
 from datetime import datetime, timezone
 import httpx
@@ -139,7 +140,10 @@ class Client:
             elif exc.response.status_code == 403:
                 # Forbidden!
                 logger.warning("403 Forbidden: This iRacing user account is forbidden from accessing this data.")
-                raise ForbiddenError("403 forbidden. This iRacing user account is forbidden from accessing this data.", exc.response)
+                raise ForbiddenError(
+                    "403 forbidden. This iRacing user account is forbidden from accessing this data.",
+                    exc.response
+                )
             elif exc.response.status_code == 404:
                 # Not found!
                 logger.warning("404 Not found: The requested data was not found.")
@@ -162,7 +166,7 @@ class Client:
                     'Here is the complete response json: \n' + response_json)
                 raise IracingError('Request Failed: Unknown error.', exc.response)
 
-    async def get_data(self, url, parameters):
+    async def _get_data(self, url, parameters):
         try:
             response_ir = await self._build_request(url, parameters)
         except (ServerDownError, AuthenticationError):
@@ -227,7 +231,7 @@ class Client:
 
         return data
 
-    async def search_results_new(
+    async def search_results(
         self,
         season_year=None,
         season_quarter=None,
@@ -283,11 +287,15 @@ class Client:
             if finish_range_end is not None:
                 parameters['finish_range_end'] = finish_range_end
         else:
-            logger.warning("You must either supply season_year and season_quarter, start_range_begin, or finish_range_begin.")
-            raise ValueError("You must either supply season_year and season_quarter, start_range_begin, or finish_range_begin.")
+            logger.warning(
+                "You must either supply season_year and season_quarter, start_range_begin, or finish_range_begin."
+            )
+            raise ValueError(
+                "You must either supply season_year and season_quarter, start_range_begin, or finish_range_begin."
+            )
         url = 'https://members-ng.iracing.com/data/results/search_series'
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
             if results is None:
                 results = []
         except (AuthenticationError, ServerDownError):
@@ -297,7 +305,7 @@ class Client:
 
         return results
 
-    async def search_hosted_new(
+    async def search_hosted(
         self,
         start_range_begin=None,
         start_range_end=None,
@@ -367,7 +375,7 @@ class Client:
             return []
         url = 'https://members-ng.iracing.com/data/results/search_hosted'
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
             if results is None:
                 results = []
         except (AuthenticationError, ServerDownError):
@@ -377,7 +385,7 @@ class Client:
 
         return results
 
-    async def lap_data_new(
+    async def lap_data(
         self,
         subsession_id: int,
         simsession_number: int
@@ -395,7 +403,7 @@ class Client:
         url = "https://members-ng.iracing.com/data/results/lap_chart_data"
 
         try:
-            lap_data_summary_dicts = await self.get_data(url, parameters)
+            lap_data_summary_dicts = await self._get_data(url, parameters)
 
             if lap_data_summary_dicts is None or len(lap_data_summary_dicts) < 1:
                 return []
@@ -434,7 +442,7 @@ class Client:
         except IracingError:
             return []
 
-    async def stats_series_new(self):
+    async def stats_series(self):
         """ Returns a list of dicts containing data about each series ever run in iRacing.
         """
         parameters = {}
@@ -442,7 +450,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/series/stats_series'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -450,12 +458,13 @@ class Client:
 
         return results
 
-    async def current_race_week_new(
+    async def current_race_week(
         self,
-        series_id: int = 139
+        series_id
     ):
         """ Returns a tuple of (season_year, season_quarter, race_week, max_weeks, active)
-        Returns None if the series is not current.
+        Returns None if the series is not current. Defaults to DEFAULT_SERIES which is
+        139 (Rookie Mazda).
         """
         parameters = {}
 
@@ -468,7 +477,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/series/seasons'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -495,7 +504,7 @@ class Client:
 
         return (None, None, None, None, None)
 
-    async def subsession_data_new(
+    async def subsession_data(
         self,
         subsession_id
     ):
@@ -509,7 +518,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/results/get'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -519,11 +528,11 @@ class Client:
             return None
 
         if len(results) > 1:
-            logger.warning(f'subsession_data_new returned more than one race dict. Returning the first in the list.')
+            logger.warning(f'subsession_data() returned more than one race dict. Returning the first in the list.')
 
         return results[0]
 
-    async def get_member_info_new(
+    async def get_member_info(
         self,
         cust_ids: list
     ):
@@ -537,7 +546,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/member/get'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -554,7 +563,7 @@ class Client:
 
         return results[0]['members']
 
-    async def lookup_drivers_new(
+    async def lookup_drivers(
         self,
         search_string: str,
         league_id: int = None
@@ -567,7 +576,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/lookup/drivers'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -575,7 +584,7 @@ class Client:
 
         return results
 
-    async def current_seasons_new(
+    async def current_seasons(
             self,
             include_series: bool = True
     ):
@@ -592,7 +601,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/series/seasons'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -603,7 +612,7 @@ class Client:
 
         return results
 
-    async def current_car_classes_new(
+    async def current_car_classes(
         self
     ):
         """ Returns a list of current car_class dicts
@@ -614,7 +623,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/carclass/get'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -625,7 +634,7 @@ class Client:
 
         return results
 
-    async def chart_data_new(
+    async def chart_data(
         self,
         cust_id,
         category_id=2,
@@ -642,7 +651,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/member/chart_data'
 
         try:
-            results = await self.get_data(url, parameters)
+            results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
@@ -659,7 +668,7 @@ class Client:
 
         return results[0]['data']
 
-    async def race_guide_new(
+    async def race_guide(
         self,
         from_time: str = None,
         include_end_after_time: bool = None
@@ -675,7 +684,7 @@ class Client:
         url = 'https://members-ng.iracing.com/data/season/race_guide'
 
         try:
-            response = await self.get_data(url, parameters)
+            response = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
         except IracingError:
