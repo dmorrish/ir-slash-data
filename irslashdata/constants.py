@@ -12,6 +12,34 @@ class License(Enum):
     PWC = 7
 
 
+class LicenseLevel(Enum):
+    R0 = 0
+    R1 = 1
+    R2 = 2
+    R3 = 3
+    R4 = 4
+    D1 = 5
+    D2 = 6
+    D3 = 7
+    D4 = 8
+    C1 = 9
+    C2 = 10
+    C3 = 11
+    C4 = 12
+    B1 = 13
+    B2 = 14
+    B3 = 15
+    B4 = 16
+    A1 = 17
+    A2 = 18
+    A3 = 19
+    A4 = 20
+    P1 = 21
+    P2 = 22
+    P3 = 23
+    P4 = 24
+
+
 class Category(Enum):
     """Holds the index for each type of racing discipline
     """
@@ -46,10 +74,12 @@ class SimSessionType(Enum):
     open_qualifying = 5
     lone_qualifying = 4
     open_practice = 3
+    lone_practice = 2
 
 
 class IncFlags(Enum):
     clean = 0
+    invalid = 1
     pitted = 2
     off_track = 4
     black_flag = 8
@@ -61,6 +91,17 @@ class IncFlags(Enum):
     interpolated_crossing = 512
     clock_smash = 1024
     tow = 2048
+    driver_change = 4096
+    first_lap = 8192
+    checkered = 16384
+    optional_path = 32768
+
+
+class ReasonOutIds(Enum):
+    running = 0
+    disqualified = 29
+    disconnected = 32
+    dq_scoring_invalidated = 34
 
 
 class Sort(Enum):
