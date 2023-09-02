@@ -122,7 +122,7 @@ class Client:
                     response_json = 'Error: json could not be decoded.'
 
                 logger.error(f'400: Bad request. Response from iRacing:\n{response_json}')
-                raise BadRequestError('Error: Bad request.', exc.response)
+                raise BadRequestError('Error: Bad request.', exc.response, exc.request)
             elif exc.response.status_code == 401:
                 logger.info(
                     '401: Unauthorized. The cookies are likely expired. '
@@ -175,16 +175,17 @@ class Client:
 
         response_ir_json = response_ir.json()
 
-        rate_limit_remaining = response_ir.headers['x-ratelimit-remaining']
-        rate_limit_reset = int(response_ir.headers['x-ratelimit-reset'])
-        now = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
-        time_to_reset = int(rate_limit_reset - now)
-        for i in range(3 - len(rate_limit_remaining)):
-            rate_limit_remaining = ' ' + rate_limit_remaining
-        logger.info(f"rate_limit_remaining: {rate_limit_remaining}")
-        if int(rate_limit_remaining) < 50:
-            logger.info(f"Approaching rate limit. Sleeping http requests for {time_to_reset} seconds")
-            await asyncio.sleep(time_to_reset)
+        if 'x-ratelimit-remaining' in response_ir.headers:
+            rate_limit_remaining = response_ir.headers['x-ratelimit-remaining']
+            rate_limit_reset = int(response_ir.headers['x-ratelimit-reset'])
+            now = datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp()
+            time_to_reset = int(rate_limit_reset - now)
+            for i in range(3 - len(rate_limit_remaining)):
+                rate_limit_remaining = ' ' + rate_limit_remaining
+            logger.info(f"rate_limit_remaining: {rate_limit_remaining}")
+            if int(rate_limit_remaining) < 50:
+                logger.info(f"Approaching rate limit. Sleeping http requests for {time_to_reset} seconds")
+                await asyncio.sleep(time_to_reset)
 
         data = []
 
@@ -199,23 +200,28 @@ class Client:
             if response_amazon is None:
                 return None
 
-            if isinstance(response_amazon.json(), list):
-                data = response_amazon.json()
+            response_amazon_json = response_amazon.json()
+
+            if isinstance(response_amazon_json, list):
+                data = response_amazon_json
             else:
                 data.append(response_amazon.json())
-        elif 'data' in response_ir_json and 'chunk_info' in response_ir_json['data'] and 'chunk_file_names' in response_ir_json['data']['chunk_info']:
-            for chunk_filename in response_ir_json['data']['chunk_info']['chunk_file_names']:
-                chunk_url = response_ir_json['data']['chunk_info']['base_download_url'] + chunk_filename
+        elif 'data' in response_ir_json and 'chunk_info' in response_ir_json['data']:
+            chunk_info_dict = response_ir_json['data']['chunk_info']
 
-                try:
-                    response_amazon = await self._build_request(chunk_url, {})
-                except (ServerDownError, AuthenticationError):
-                    raise
-                except IracingError:
-                    return None
+            if 'chunk_file_names' in chunk_info_dict and 'base_download_url' in chunk_info_dict:
+                for chunk_filename in chunk_info_dict['chunk_file_names']:
+                    chunk_url = chunk_info_dict['base_download_url'] + chunk_filename
 
-                for item in response_amazon.json():
-                    data.append(item)
+                    try:
+                        response_amazon = await self._build_request(chunk_url, {})
+                    except (ServerDownError, AuthenticationError):
+                        raise
+                    except IracingError:
+                        return None
+
+                    for item in response_amazon.json():
+                        data.append(item)
         else:
             data = response_ir_json
 
@@ -234,7 +240,7 @@ class Client:
         series_id=None,
         race_week_num=None,
         official_only=None,
-        event_types=[5],
+        event_types=[2, 3, 4, 5],
         category_ids=[1, 2, 3, 4]
     ):
         """ Returns a list with a SearchResults object for each of a driver's
@@ -307,10 +313,11 @@ class Client:
         track_id=None,
         category_ids=[1, 2, 3, 4]
     ):
-        """ Returns a list with a SearchResults object for each of a driver's
-        past events that meet the selected criteria. You must provide either a year
-        and quarter or a time range with starttime_low and starttime_high. Default
-        is to return results from race events in any category and any series.
+        """ Returns a list with a dict for each of a driver's past hosted events
+        that meet the selected criteria. You must provide either a
+        start_range_begin or start_range_end. If the start_range_... value is more
+        than 90 days in the past, you must also provide the corresponsing
+        finish_range_... value.
         """
         parameters = {}
 
@@ -323,7 +330,10 @@ class Client:
         elif session_name is not None:
             parameters['session_name'] = session_name
         else:
-            logger.warning("You must supply one of cust_id, team_id, host_cust_id, or session_name to search hosted results.")
+            logger.warning(
+                "You must supply one of cust_id, team_id, host_cust_id, "
+                "or session_name to search hosted results."
+            )
             return []
 
         if league_id is not None:
@@ -350,7 +360,10 @@ class Client:
             if finish_range_end is not None:
                 parameters['finish_range_end'] = finish_range_end
         else:
-            logger.warning("You must either supply start_range_begin or finish_range_begin.")
+            logger.warning(
+                "You must either supply start_range_begin or "
+                "finish_range_begin."
+            )
             return []
         url = 'https://members-ng.iracing.com/data/results/search_hosted'
         try:
@@ -363,6 +376,63 @@ class Client:
             results = []
 
         return results
+
+    async def lap_data_new(
+        self,
+        subsession_id: int,
+        simsession_number: int
+    ):
+        """ Returns a list of dicts of lap data. You must provide cust_id for
+        single-driver events, and it's optional for team events. You must
+        provide team_id for team events.
+        """
+
+        parameters = {
+            'subsession_id': subsession_id,
+            'simsession_number': simsession_number
+        }
+
+        url = "https://members-ng.iracing.com/data/results/lap_chart_data"
+
+        try:
+            lap_data_summary_dicts = await self.get_data(url, parameters)
+
+            if lap_data_summary_dicts is None or len(lap_data_summary_dicts) < 1:
+                return []
+            else:
+                if len(lap_data_summary_dicts) > 1:
+                    logger.warning("More than one summary dict returned. Ignoring the extras.")
+
+                lap_data_summary_dict = lap_data_summary_dicts[0]
+
+                if (
+                    ('success' in lap_data_summary_dict and lap_data_summary_dict['success'] is True)
+                    and 'chunk_info' in lap_data_summary_dict
+                    and 'base_download_url' in lap_data_summary_dict['chunk_info']
+                    and 'chunk_file_names' in lap_data_summary_dict['chunk_info']
+                ):
+                    total_data = []
+                    chunk_info_dict = lap_data_summary_dict['chunk_info']
+                    for chunk_filename in chunk_info_dict['chunk_file_names']:
+                        chunk_url = chunk_info_dict['base_download_url'] + chunk_filename
+
+                        try:
+                            response_ir = await self._build_request(chunk_url, {})
+                        except (ServerDownError, AuthenticationError):
+                            raise
+                        except IracingError:
+                            return None
+
+                        response_ir_json = response_ir.json()
+
+                        if response_ir_json is not None and len(response_ir_json) > 0:
+                            total_data += response_ir_json
+                    return total_data
+
+        except (AuthenticationError, ServerDownError):
+            raise
+        except IracingError:
+            return []
 
     async def stats_series_new(self):
         """ Returns a list of dicts containing data about each series ever run in iRacing.
