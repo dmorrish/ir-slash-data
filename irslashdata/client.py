@@ -62,11 +62,11 @@ class Client:
 
         except httpx.RequestError as exc:
             logger.warning("Bad request when trying to authenticate.")
-            raise BadRequestError("Bad request when trying to authenticate.", exc.request)
+            raise BadRequestError("Bad request when trying to authenticate.", exc.response, exc.request)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400:
                 logger.warning(f"400 Bad request during authentication. URL: {exc.request.url}")
-                raise BadRequestError("400 Bad request during authentication.", exc.request)
+                raise BadRequestError("400 Bad request during authentication.", exc.response, exc.request)
             if exc.response.status_code == 401:
                 logger.warning(
                     'The login POST request returned status code 401 '
@@ -114,7 +114,7 @@ class Client:
             logger.info(f"Response: {response.status_code} {response.reason_phrase}")
             return response
         except httpx.RequestError as exc:
-            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.request)
+            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.repsonse, exc.request)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400:
                 try:
