@@ -114,7 +114,7 @@ class Client:
             logger.info(f"Response: {response.status_code} {response.reason_phrase}")
             return response
         except httpx.RequestError as exc:
-            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.repsonse, exc.request)
+            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.response, exc.request)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400:
                 try:
