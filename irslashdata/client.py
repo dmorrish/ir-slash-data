@@ -101,7 +101,7 @@ class Client:
             except (AuthenticationError, IracingError, ServerDownError, BadRequestError):
                 raise
 
-        logger.info(f'Request being sent to: {url} with params: {json.dumps(params)}')
+        logger.debug(f'Request being sent to: {url} with params: {json.dumps(params)}')
 
         try:
             response = await self.session.get(
