@@ -32,7 +32,7 @@ class Client:
         """
         self.username = username
         self.password = encode_password(username, password)
-        self.session = httpx.AsyncClient()
+        self.session = httpx.AsyncClient(timeout=10.0)
         self.maintenance_lock = False
 
     async def _authenticate(self):
@@ -107,12 +107,13 @@ class Client:
             response = await self.session.get(
                 url,
                 params=params,
-                follow_redirects=False,
-                timeout=None
+                follow_redirects=False
             )
             response.raise_for_status()
             logger.info(f"Response: {response.status_code} {response.reason_phrase}")
             return response
+        except httpx.TimeoutException as exc:
+            raise IracingError(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
         except httpx.RequestError as exc:
             raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.response, exc.request)
         except httpx.HTTPStatusError as exc:
