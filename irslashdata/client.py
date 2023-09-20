@@ -113,6 +113,7 @@ class Client:
             logger.info(f"Response: {response.status_code} {response.reason_phrase}")
             return response
         except httpx.TimeoutException as exc:
+            logger.warning(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
             raise IracingError(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
         except httpx.RequestError as exc:
             raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.response, exc.request)
