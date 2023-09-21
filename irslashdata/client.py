@@ -58,25 +58,25 @@ class Client:
 
                     logger.warning(message)
                     logger.debug(auth_response.json())
-                    raise AuthenticationError(message, auth_response)
+                    raise AuthenticationError(message, response=auth_response)
 
         except httpx.RequestError as exc:
             logger.warning("Bad request when trying to authenticate.")
-            raise BadRequestError("Bad request when trying to authenticate.", exc.response, exc.request)
+            raise BadRequestError("Bad request when trying to authenticate.", exc.request)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400:
                 logger.warning(f"400 Bad request during authentication. URL: {exc.request.url}")
-                raise BadRequestError("400 Bad request during authentication.", exc.response, exc.request)
+                raise BadRequestError("400 Bad request during authentication.", exc.request, response=exc.response)
             if exc.response.status_code == 401:
                 logger.warning(
                     'The login POST request returned status code 401 '
                     'indicating an authentication failure. Please check '
                     'the supplied credentials.')
-                raise AuthenticationError('Login Failed: Authentication failure.', exc.response)
+                raise AuthenticationError('Login Failed: Authentication failure.', response=exc.response)
             elif exc.response.status_code == 503:
                 logger.warning(
                     'The iRacing stats server is currently down for maintenance.')
-                raise ServerDownError('Login Failed: iRacing is down for maintenance.', exc.response)
+                raise ServerDownError('Login Failed: iRacing is down for maintenance.', response=exc.response)
             else:
                 try:
                     auth_response_json = exc.response.json()
@@ -85,9 +85,9 @@ class Client:
 
                 logger.warning(
                     'The following unhandled response code was received from the '
-                    'server: ' + str(auth_response.status_code) + "\n"
-                    'Here is the complete response json: \n' + auth_response_json)
-                raise IracingError('Login Failed: Unknown error.', exc.response)
+                    'server: ' + str(auth_response.status_code) + "."
+                    'Here is the complete response json: ' + auth_response_json)
+                raise IracingError('Login Failed: Unknown error.', response=exc.response)
         else:
             logger.info("Successfully logged into iRacing /data server.")
 
@@ -116,7 +116,8 @@ class Client:
             logger.warning(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
             raise IracingError(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
         except httpx.RequestError as exc:
-            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.response, exc.request)
+            logger.warning(f"httpx.RequestError occured for {exc.request.url} - {exc}.")
+            raise BadRequestError(f"Bad request. URL: {exc.request.url}", exc.request)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 400:
                 try:
@@ -124,8 +125,8 @@ class Client:
                 except json.decoder.JSONDecodeError:
                     response_json = 'Error: json could not be decoded.'
 
-                logger.error(f'400: Bad request. Response from iRacing:\n{response_json}')
-                raise BadRequestError('Error: Bad request.', exc.response, exc.request)
+                logger.error(f'400: Bad request. Response from iRacing: {response_json}')
+                raise BadRequestError('Error: Bad request.', exc.request, response=exc.response)
             elif exc.response.status_code == 401:
                 logger.info(
                     '401: Unauthorized. The cookies are likely expired. '
@@ -135,7 +136,7 @@ class Client:
                     await self._authenticate()
                 except (AuthenticationError, IracingError, ServerDownError, BadRequestError) as exc:
                     logger.info("Abandoning request. Could not re-authenticate.")
-                    raise AuthenticationError("Abandoning request. Could not re-authenticate.", exc.response)
+                    raise AuthenticationError("Abandoning request. Could not re-authenticate.", response=exc.response)
                 else:
                     logger.info("Retrying request.")
                     return await self._build_request(url, params)
@@ -144,18 +145,21 @@ class Client:
                 logger.warning("403 Forbidden: This iRacing user account is forbidden from accessing this data.")
                 raise ForbiddenError(
                     "403 forbidden. This iRacing user account is forbidden from accessing this data.",
-                    exc.response
+                    response=exc.response
                 )
             elif exc.response.status_code == 404:
                 # Not found!
                 logger.warning("404 Not found: The requested data was not found.")
-                raise NotFoundError("404 not found: The requested data was not found.", exc.response)
+                raise NotFoundError("404 not found: The requested data was not found.", response=exc.response)
             elif exc.response.status_code == 408:
                 logger.warning('408: Request timed out.')
-                raise IracingError("408: Request timed out.", exc.response)
+                raise IracingError("408: Request timed out.", response=exc.response)
             elif exc.response.status_code == 503:
                 logger.warning("503: The iRacing stats server is currently down for maintenance.")
-                raise ServerDownError("503: The iRacing stats server is currently down for maintenance.", exc.response)
+                raise ServerDownError(
+                    "503: The iRacing stats server is currently down for maintenance.",
+                    response=exc.response
+                )
             else:
                 try:
                     response_json = response.json()
@@ -164,9 +168,9 @@ class Client:
 
                 logger.warning(
                     'The following unhandled response code was received from the '
-                    'server: ' + str(response.status_code) + "\n"
-                    'Here is the complete response json: \n' + response_json)
-                raise IracingError('Request Failed: Unknown error.', exc.response)
+                    'server: ' + str(response.status_code) + "."
+                    'Here is the complete response json: ' + response_json)
+                raise IracingError('Request Failed: Unknown error.', response=exc.response)
 
     async def _get_data(self, url, parameters):
         try:
