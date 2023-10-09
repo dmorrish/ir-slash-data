@@ -109,8 +109,8 @@ class Client:
                 params=params,
                 follow_redirects=False
             )
-            response.raise_for_status()
             logger.info(f"Response: {response.status_code} {response.reason_phrase}")
+            response.raise_for_status()
             return response
         except httpx.TimeoutException as exc:
             logger.warning(f"httpx.TimeoutException occured for {exc.request.url} - {exc}.")
