@@ -251,7 +251,7 @@ class Client:
         race_week_num=None,
         official_only=None,
         event_types=[2, 3, 4, 5],
-        category_ids=[1, 2, 3, 4]
+        category_ids=[1, 2, 3, 4, 5, 6]
     ):
         """ Returns a list with a SearchResults object for each of a driver's
         past events that meet the selected criteria. You must provide either a year
@@ -325,7 +325,7 @@ class Client:
         league_season_id=None,
         car_id=None,
         track_id=None,
-        category_ids=[1, 2, 3, 4]
+        category_ids=[1, 2, 3, 4, 5, 6]
     ):
         """ Returns a list with a dict for each of a driver's past hosted events
         that meet the selected criteria. You must provide either a
