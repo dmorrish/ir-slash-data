@@ -177,6 +177,8 @@ class Client:
             response_ir = await self._build_request(url, parameters)
         except (ServerDownError, AuthenticationError):
             raise
+        except ForbiddenError:
+            raise
         except IracingError:
             return None
 
@@ -527,6 +529,8 @@ class Client:
             results = await self._get_data(url, parameters)
         except (AuthenticationError, ServerDownError):
             raise
+        except ForbiddenError:
+            raise
         except IracingError:
             return None
 
@@ -709,3 +713,22 @@ class Client:
             return None
 
         return response[0]
+
+    async def track_get(
+        self,
+    ):
+        parameters = {}
+
+        url = 'https://members-ng.iracing.com/data/track/get'
+
+        try:
+            response = await self._get_data(url, parameters)
+        except (AuthenticationError, ServerDownError):
+            raise
+        except IracingError:
+            return None
+
+        if response is None or len(response) < 1:
+            return None
+
+        return response
